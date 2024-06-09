@@ -1,0 +1,5 @@
+pandas
+tiktoken
+openai-whisper
+boto3
+python-dotenv
