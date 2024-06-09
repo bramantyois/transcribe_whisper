@@ -7,7 +7,7 @@ import argparse
 
 def find_transcribed_files(meta_dir: str):
     """
-    Scan the metadata directory and return a list of metadata.
+    Scan the metadata directory and return a list of transcribed files.
     """
     transcribed_files = []
     for meta_file in os.listdir(meta_dir):
