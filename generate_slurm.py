@@ -35,7 +35,8 @@ def get_untranscribed_files(speech_file_dir: str, meta_dir: str):
         if not speech_file.endswith(".mp4"):
             continue
         if speech_file not in transcribed_files:
-            speech_files.append(speech_file)
+            rel_path = os.path.join(speech_file_dir, speech_file)
+            speech_files.append(rel_path)
     return speech_files
 
 
@@ -43,52 +44,44 @@ def generate_slurm_script(
     speech_file_dir: str,
     transcript_save_dir: str ="results/transcripts",
     meta_save_dir: str = "results/meta",
-    slurm_script_dir: str = ".cache/slurm_scripts",
     whisper_model: str = "large-v3",
     n_files_per_job: int = 10,
-    submit_jobs: bool = False
+    submit_jobs: bool = False,
+    cache_dir: str = ".cache",
 ):
+    slurm_script_dir = os.path.join(cache_dir, "slurm_scripts")
+    slurm_out_dir = os.path.join(cache_dir, "slurm_out")
+    slurm_err_dir = os.path.join(cache_dir, "slurm_err")
     if not os.path.exists(slurm_script_dir):
         os.makedirs(slurm_script_dir)
+    if not os.path.exists(slurm_out_dir):
+        os.makedirs(slurm_out_dir)
+    if not os.path.exists(slurm_err_dir):
+        os.makedirs(slurm_err_dir)
     
     speech_files = get_untranscribed_files(speech_file_dir, meta_save_dir)
 
     n_jobs = len(speech_files) // n_files_per_job + 1
 
     for i in range(n_jobs):
-        f"""#!/bin/bash/
-        #SBATCH --job-name=transcribe_{i}
-        #SBATCH --output=transcribe_{i}.out
-        #SBATCH --error=transcribe_{i}.err
-        #SBATCH --time=1:00:00
-        #SBATCH --cpus-per-task=2
-        #SBATCH --partition=gpu
-        #SBATCH --gres=gpu:1
-        #SBATCH --mem=16G
-        
-        module load conda
-        conda activate whisper
-        
-        transcribe.py \\
-                --speech_files {' '.join(speech_files[i*n_files_per_job:(i+1)*n_files_per_job])} \\
-                --whisper_model {whisper_model} \\
-                --transcript_save_dir {transcript_save_dir} \\
-                --meta_save_dir {meta_save_dir}"""
         slurm_fn = os.path.join(slurm_script_dir, f"transcribe_{i}.slurm")
+        out_fn = os.path.join(slurm_out_dir, f"transcribe_{i}.out")
+        err_fn = os.path.join(slurm_err_dir, f"transcribe_{i}.err")
         with open(slurm_fn, "w") as f:
-            f.write("""#!/bin/bash/\n\n""")
+            f.write("""#!/bin/bash\n\n""")
             f.write(f"#SBATCH --job-name=transcribe_{i}\n")
-            f.write(f"#SBATCH --output=transcribe_{i}.out\n")
-            f.write(f"#SBATCH --error=transcribe_{i}.err\n")
-            f.write(f"#SBATCH --time=1:00:00\n")
+            f.write(f"#SBATCH --output={out_fn}\n")
+            f.write(f"#SBATCH --error={err_fn}\n")
+            f.write(f"#SBATCH --time=2:00:00\n")
             f.write(f"#SBATCH --cpus-per-task=2\n")
             f.write(f"#SBATCH --partition=gpu\n")
-            f.write(f"#SBATCH --gres=gpu:1\n")
+            f.write(f"#SBATCH --gres=gpu:turing:1\n")
             f.write(f"#SBATCH --mem=16G\n\n")
             
+            # print cwd
             f.write("module load conda\n")
             f.write("conda activate whisper\n")
-            f.write(f"python transcribe.py --speech_files {' '.join(speech_files[i*n_files_per_job:(i+1)*n_files_per_job])} --whisper_model {whisper_model} --transcript_save_dir {transcript_save_dir} --meta_save_dir {meta_save_dir}")
+            f.write(f"python transcribe.py {' '.join(speech_files[i*n_files_per_job:(i+1)*n_files_per_job])} --whisper_model {whisper_model} --transcript_save_dir {transcript_save_dir} --meta_save_dir {meta_save_dir}")
              
         if submit_jobs:
             # Submit the job

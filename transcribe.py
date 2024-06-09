@@ -5,6 +5,8 @@ import json
 from typing import List
 import whisper
 
+from tqdm import tqdm
+
 from s3utils import save_file_to_s3
 
 # load .env file
@@ -39,12 +41,12 @@ def transcribe_file(
         os.makedirs(transcript_save_dir)
     if not os.path.exists(meta_save_dir):
         os.makedirs(meta_save_dir)
-    
+
     model = whisper.load_model(whisper_model)
 
     # transcribe each speech file with error handling
 
-    for speech_file in speech_files:
+    for speech_file in tqdm(speech_files):
         fn = get_id(os.path.basename(speech_file))  # get youtube id
 
         save_path = os.path.join(transcript_save_dir, f"{fn}.txt")
