@@ -48,6 +48,7 @@ def generate_slurm_script(
     n_files_per_job: int = 10,
     submit_jobs: bool = False,
     cache_dir: str = ".cache",
+    is_tardis: bool = False,
 ):
     slurm_script_dir = os.path.join(cache_dir, "slurm_scripts")
     slurm_out_dir = os.path.join(cache_dir, "slurm_out")
@@ -75,7 +76,11 @@ def generate_slurm_script(
             f.write(f"#SBATCH --time=2:00:00\n")
             f.write(f"#SBATCH --cpus-per-task=2\n")
             f.write(f"#SBATCH --partition=gpu\n")
-            f.write(f"#SBATCH --gres=gpu:turing:1\n")
+            if is_tardis:
+                f.write(f"#SBATCH --gres=gpu:turing:1\n")
+            else:
+                f.write(f"#SBATCH --gres=gpu:1\n")
+                
             f.write(f"#SBATCH --mem=16G\n\n")
             
             # print cwd
@@ -97,6 +102,7 @@ def get_parser():
     parser.add_argument("--whisper_model", type=str, default="large-v3", help="Whisper model to use.")
     parser.add_argument("--n_files_per_job", type=int, default=10, help="Number of files to transcribe per job.")
     parser.add_argument("--submit_jobs", action="store_true", help="Submit jobs to SLURM.")
+    parser.add_argument("--is_tardis", action="store_true", help="Use TARDIS cluster instead of RAVEN.")
     
     return parser
 
@@ -111,4 +117,5 @@ if __name__ == "__main__":
         whisper_model=args.whisper_model,
         n_files_per_job=args.n_files_per_job,
         submit_jobs=args.submit_jobs
+        is_tardis=args.is_tardis
     )
