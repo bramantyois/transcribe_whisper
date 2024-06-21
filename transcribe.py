@@ -99,6 +99,10 @@ def get_parser():
     parser.add_argument(
         "--meta_save_dir", type=str, default="meta", help="Directory to save metadata"
     )
+    
+    parser.add_argument(
+        "--upload_to_s3", action="store_true", help="Upload to S3"
+    )
     return parser
 
 
@@ -111,4 +115,5 @@ if __name__ == "__main__":
         args.whisper_model,
         args.transcript_save_dir,
         args.meta_save_dir,
+        args.upload_to_s3,
     )

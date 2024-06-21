@@ -49,6 +49,7 @@ def generate_slurm_script(
     submit_jobs: bool = False,
     cache_dir: str = ".cache",
     is_tardis: bool = False,
+    upload_to_s3: bool = False
 ):
     slurm_script_dir = os.path.join(cache_dir, "slurm_scripts")
     slurm_out_dir = os.path.join(cache_dir, "slurm_out")
@@ -86,8 +87,11 @@ def generate_slurm_script(
             # print cwd
             f.write("module load conda\n")
             f.write("conda activate whisper\n")
-            f.write(f"python transcribe.py {' '.join(speech_files[i*n_files_per_job:(i+1)*n_files_per_job])} --whisper_model {whisper_model} --transcript_save_dir {transcript_save_dir} --meta_save_dir {meta_save_dir}")
-             
+            if not upload_to_s3:
+                f.write(f"python transcribe.py {' '.join(speech_files[i*n_files_per_job:(i+1)*n_files_per_job])} --whisper_model {whisper_model} --transcript_save_dir {transcript_save_dir} --meta_save_dir {meta_save_dir}")
+            else:
+                f.write(f"python transcribe.py {' '.join(speech_files[i*n_files_per_job:(i+1)*n_files_per_job])} --whisper_model {whisper_model} --transcript_save_dir {transcript_save_dir} --meta_save_dir {meta_save_dir} --upload_to_s3")
+
         if submit_jobs:
             # Submit the job
             os.system(f"sbatch {slurm_fn}")
@@ -103,6 +107,7 @@ def get_parser():
     parser.add_argument("--n_files_per_job", type=int, default=10, help="Number of files to transcribe per job.")
     parser.add_argument("--submit_jobs", action="store_true", help="Submit jobs to SLURM.")
     parser.add_argument("--is_tardis", action="store_true", help="Use TARDIS cluster instead of RAVEN.")
+    parser.add_argument("--upload_to_s3", action="store_true", help="Upload transcripts to S3")
     
     return parser
 
@@ -116,6 +121,7 @@ if __name__ == "__main__":
         meta_save_dir=args.meta_save_dir,
         whisper_model=args.whisper_model,
         n_files_per_job=args.n_files_per_job,
-        submit_jobs=args.submit_jobs
-        is_tardis=args.is_tardis
+        submit_jobs=args.submit_jobs,
+        is_tardis=args.is_tardis,
+        upload_to_s3=args.upload_to_s3
     )

@@ -4,3 +4,7 @@ __pycache__
 data
 results
 *.env
+*.mp4
+*.json
+*.txt
+*.out
