@@ -7,7 +7,7 @@ import argparse
 
 def find_transcribed_files(meta_dir: str):
     """
-    Scan the metadata directory and return a list of transcribed files.
+    Scan the metadata directory and return a list of transcribed files. meta dir should corresponds to S3 bucket.
     """
     if not os.path.exists(meta_dir):
         return []
