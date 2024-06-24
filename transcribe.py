@@ -8,7 +8,6 @@ import whisper
 from tqdm import tqdm
 
 from s3utils import save_file_to_s3
-
 # load .env file
 from dotenv import load_dotenv
 

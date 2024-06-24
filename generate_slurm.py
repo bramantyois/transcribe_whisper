@@ -4,19 +4,30 @@ import json
 
 import argparse
 
+from s3utils import load_folder_from_s3, get_list_of_files_s3
+
 
 def find_transcribed_files(meta_dir: str):
     """
     Scan the metadata directory and return a list of transcribed files. meta dir should corresponds to S3 bucket.
+
+    TODO: 
+    - Add a check if the file is in S3
+    - Download the file if it is not in the local directory
     """
     if not os.path.exists(meta_dir):
-        return []
+        try:
+            load_folder_from_s3(s3_folder_path=meta_dir)
+        except Exception as e:
+            print(f"Failed to load {meta_dir} from S3: {e}")
+            return []
+    
     transcribed_files = []
     for meta_file in os.listdir(meta_dir):
         if meta_file.endswith(".json"):
             with open(os.path.join(meta_dir, meta_file), "r") as f:
                 meta = json.load(f)
-                if meta["status"] == "success":
+                if meta["status"] == "succeded":
                     transcribed_files.append(meta["speech_file"])
     return transcribed_files
 

@@ -142,6 +142,36 @@ def load_folder_from_s3(s3_folder_path, bucket_name=None, save_dir="./"):
             s3_client.download_file(bucket_name, obj["Key"], local_file_path)
 
 
+def get_list_of_files_s3(s3_folder_path, bucket_name=None):
+    """
+    Get list of files on S3 bucket
+
+    Args:
+        s3_folder_path (str): S3 folder path to load
+        bucket_name (str): Bucket name to load
+    """
+    if bucket_name is None:
+        bucket_name = os.environ.get("MINIO_BUCKET")
+    assert (
+        os.environ.get("MINIO_BUCKET") is not None
+    ), "MINIO_BUCKET environment variable must be set"
+
+    s3_client = get_minio_client()
+
+    paginator = s3_client.get_paginator("list_objects_v2")
+    pages = paginator.paginate(Bucket=bucket_name, Prefix=s3_folder_path)
+
+    files = []
+    sizes = []
+
+    for page in pages:
+        for obj in page.get("Contents", []):
+            files.append(obj["Key"])
+            sizes.append(obj["Size"])
+
+    return files, sizes
+
+
 class S3Mixin:
     def save(self, directory_path: str):
         """

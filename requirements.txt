@@ -4,3 +4,7 @@ openai-whisper
 boto3
 python-dotenv
 tqdm
+transformers
+datasets
+python-dotenv
+accelerate
