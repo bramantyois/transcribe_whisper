@@ -84,8 +84,6 @@ def generate_slurm_script(
     speech_file_dir: str,
     transcript_save_dir: str = "results/transcripts",
     meta_save_dir: str = "results/meta",
-    whisper_model: str = "large-v3",
-    n_files_per_job: int = 10,
     submit_jobs: bool = False,
     cache_dir: str = ".cache",
     is_tardis: bool = False,
