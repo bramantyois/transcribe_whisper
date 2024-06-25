@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 def get_minio_client():
     # MinIO server credentials
     minio_url = os.environ.get("MINIO_URL")
@@ -52,7 +53,7 @@ def save_file_to_s3(
 
     if s3_folder_path is None:
         s3_key = local_path
-    else:    
+    else:
         s3_key = os.path.join(s3_folder_path, filename)
 
     s3_client = get_minio_client()
@@ -61,9 +62,9 @@ def save_file_to_s3(
 
 
 def save_folder_to_s3(
-        local_folder_path,
-        bucket_name=None,
-        s3_folder_path : Optional[str] = None,
+    local_folder_path,
+    bucket_name=None,
+    s3_folder_path: Optional[str] = None,
 ):
     """
     Save a folder to MINIO bucket.
@@ -80,7 +81,7 @@ def save_folder_to_s3(
     ), "MINIO_BUCKET environment variable must be set"
 
     s3_client = get_minio_client()
-    
+
     if s3_folder_path is None:
         s3_folder_path = local_folder_path
 
@@ -142,7 +143,7 @@ def load_folder_from_s3(s3_folder_path, bucket_name=None, save_dir="./"):
             s3_client.download_file(bucket_name, obj["Key"], local_file_path)
 
 
-def get_list_of_files_s3(s3_folder_path, bucket_name=None):
+def get_list_of_files_s3(s3_folder_path, return_size=False, bucket_name=None):
     """
     Get list of files on S3 bucket
 
@@ -168,8 +169,11 @@ def get_list_of_files_s3(s3_folder_path, bucket_name=None):
         for obj in page.get("Contents", []):
             files.append(obj["Key"])
             sizes.append(obj["Size"])
+        
+    if return_size:
+        return files, sizes
 
-    return files, sizes
+    return files
 
 
 class S3Mixin:
@@ -221,10 +225,10 @@ class S3Mixin:
 
     @classmethod
     def load_s3(
-        cls, 
-        bucket_name=None, 
-        local_folder_path: str="models/nn_model/", 
-        s3_folder_path: str = None
+        cls,
+        bucket_name=None,
+        local_folder_path: str = "models/nn_model/",
+        s3_folder_path: str = None,
     ):
         """
         Load the model from a MINIO bucket. This method should load both the model and metadata
@@ -262,29 +266,38 @@ class S3Mixin:
 
 
 if __name__ == "__main__":
-    
+
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--mode', choices=['load_folder', 'save_folder', 'load_file', 'save_file'], required=True)
-    
-    parser.add_argument("--path", type=str, help="can be S3 path or local path to load or save", required=True)
-    
+    parser.add_argument(
+        "--mode",
+        choices=["load_folder", "save_folder", "load_file", "save_file"],
+        required=True,
+    )
+
+    parser.add_argument(
+        "--path",
+        type=str,
+        help="can be S3 path or local path to load or save",
+        required=True,
+    )
+
     parser.add_argument("--bucket_name", type=str, help="bucket name", required=False)
-    
+
     # if args.load_folder:
     #     load_folder_from_s3(args.s3_path, save_dir=args.local_path)
     # elif args.save_folder:
     #     save_folder_to_s3(args.local_path, s3_folder_path=args.s3_path)
-    
+
     parser = parser.parse_args()
-    
-    if parser.mode == 'load_folder':
+
+    if parser.mode == "load_folder":
         load_folder_from_s3(parser.path)
-    elif parser.mode == 'save_folder':
+    elif parser.mode == "save_folder":
         save_folder_to_s3(parser.path)
-    elif parser.mode == 'load_file':
+    elif parser.mode == "load_file":
         load_file_from_s3(parser.path)
-    elif parser.mode == 'save_file':
+    elif parser.mode == "save_file":
         save_file_to_s3(parser.path)
     else:
         raise ValueError("Invalid mode")
