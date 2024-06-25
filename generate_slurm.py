@@ -12,10 +12,6 @@ from s3utils import load_folder_from_s3, get_list_of_files_s3
 def find_transcribed_files(meta_dir: str):
     """
     Scan the metadata directory and return a list of transcribed files. meta dir should corresponds to S3 bucket.
-
-    TODO:
-    - Add a check if the file is in S3
-    - Download the file if it is not in the local directory
     """
     if not os.path.exists(meta_dir):
         try:
@@ -23,6 +19,9 @@ def find_transcribed_files(meta_dir: str):
         except Exception as e:
             print(f"Failed to load {meta_dir} from S3: {e}")
             return []
+
+    if not os.path.exists(meta_dir):
+        os.makedirs(meta_dir)
 
     transcribed_files = []
     for meta_file in os.listdir(meta_dir):
@@ -42,19 +41,22 @@ def get_untranscribed_files(
     """
     transcribed_files = find_transcribed_files(meta_dir)
     all_files, sizes = get_list_of_files_s3(speech_file_dir, return_size=True)
+    
+    all_files = all_files[:100]
+    sizes = sizes[:100]
 
     # now get untranscribed_file
     untranscribed_files = []
-    unstranscribed_sizes = []
+    untranscribed_sizes = []
     for file, size in zip(all_files, sizes):
         if not file.endswith(".mp4"):
             continue
         if file not in transcribed_files:
             untranscribed_files.append(file)
-            unstranscribed_sizes.append(size)
+            untranscribed_sizes.append(size)
 
     if return_size:
-        return untranscribed_files, unstranscribed_sizes
+        return untranscribed_files, untranscribed_sizes
 
     return untranscribed_files
 
@@ -88,7 +90,6 @@ def generate_slurm_script(
     cache_dir: str = ".cache",
     is_tardis: bool = False,
     upload_to_s3: bool = False,
-    max_file_size_per_batch: float = 1e9,
 ):
     slurm_script_dir = os.path.join(cache_dir, "slurm_scripts")
     slurm_out_dir = os.path.join(cache_dir, "slurm_out")
@@ -104,6 +105,10 @@ def generate_slurm_script(
         speech_file_dir, meta_save_dir, return_size=True
     )
 
+    if is_tardis:
+        max_file_size_per_batch = 16e7
+    else:
+        max_file_size_per_batch = 40e7
     batches = get_batches(
         file_sizes, speech_files, max_size_per_batch=max_file_size_per_batch
     )
@@ -164,12 +169,6 @@ def get_parser():
     )
 
     parser.add_argument(
-        "--n_files_per_job",
-        type=int,
-        default=10,
-        help="Number of files to transcribe per job.",
-    )
-    parser.add_argument(
         "--submit_jobs", action="store_true", help="Submit jobs to SLURM."
     )
     parser.add_argument(
@@ -189,7 +188,6 @@ if __name__ == "__main__":
         speech_file_dir=args.speech_file_dir,
         transcript_save_dir=args.transcript_save_dir,
         meta_save_dir=args.meta_save_dir,
-        n_files_per_job=args.n_files_per_job,
         submit_jobs=args.submit_jobs,
         is_tardis=args.is_tardis,
         upload_to_s3=args.upload_to_s3,

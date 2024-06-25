@@ -1,27 +1,29 @@
 import os
 import argparse
 import json
+from dotenv import load_dotenv
 
 from typing import List, Optional
-import whisper
 
 from tqdm import tqdm
 
-from s3utils import save_file_to_s3
+import torch
+from transformers import AutoProcessor, WhisperForConditionalGeneration
+import whisper
+
+from s3utils import load_file_from_s3, save_file_to_s3
 
 # load .env file
-from dotenv import load_dotenv
-
-
 load_dotenv()
 
 
-def get_id(youtube_id: str):
+def get_id(mp4_filename: str):
     """
-    Get the video id from a youtube url.
+    Get filename without ext
     """
-    id = youtube_id.split("=")[-1]
-    id = id.split(".")[0]
+    # fn without dir
+    fn = os.path.basename(mp4_filename)
+    id = fn.split(".")[0]
     return id
 
 
@@ -104,10 +106,9 @@ def write_meta(
         status = ["transcribing"] * len(file_list)
 
     metas = []
-
     for file, stat in zip(file_list, status):
-        transcript_fn = get_id(file)
-        fn = os.path.join(transcript_save_dir, f"{transcript_fn}.txt")
+        file_id = get_id(file)
+        fn = os.path.join(transcript_save_dir, f"{file_id}.txt")
         meta = {
             "transcription_file": f"{fn}.txt",
             "speech_file": file,
@@ -115,7 +116,7 @@ def write_meta(
         }
         metas.append(meta)
 
-        meta_save_path = os.path.join(meta_save_dir, f"{fn}.json")
+        meta_save_path = os.path.join(meta_save_dir, f"{file_id}.json")
         with open(meta_save_path, "w") as f:
             json.dump(meta, f)
 
@@ -124,12 +125,13 @@ def write_meta(
 
 
 def write_transcript(
+    audio_files: List[str],
     transcripts: List[str],
     transcript_save_dir: str = "transcripts",
     upload_to_s3: bool = True,
 ):
-    for t in transcripts:
-        transcript_fn = get_id(file)
+    for i, t in enumerate(transcripts):
+        transcript_fn = get_id(audio_files[i])
         transcript_fn = os.path.join(transcript_save_dir, f"{transcript_fn}.txt")
         with open(transcript_fn, "w") as f:
             f.write(t)
@@ -159,7 +161,7 @@ def transcribe_file(
     for f in audio_files:
         if not os.path.exists(f):
             print(f"Downloading {f} from S3")
-            save_file_to_s3(f)
+            load_file_from_s3(f)
 
     # now
     write_meta(
@@ -175,26 +177,31 @@ def transcribe_file(
     else:
         transcripts, status = transcribe_per_files(audio_files)
 
-    write_meta(audio_files, status, meta_save_dir, transcript_save_dir, upload_to_s3)
+    write_meta(
+        audio_files,
+        status=status,
+        meta_save_dir=meta_save_dir,
+        transcript_save_dir=transcript_save_dir,
+        upload_to_s3=upload_to_s3,
+    )
 
-    write_transcript(transcripts, transcript_save_dir, upload_to_s3)
-    
+    write_transcript(
+        audio_files=audio_files,
+        transcripts=transcripts, 
+        transcript_save_dir=transcript_save_dir, 
+        upload_to_s3=upload_to_s3)
+
     if delete_files:
         for f in audio_files:
             os.remove(f)
-    
+
 
 def get_parser():
     parser = argparse.ArgumentParser(description="Transcribe a list of speech files")
     parser.add_argument(
         "audio_files", type=str, nargs="+", help="List of speech files to transcribe"
     )
-    parser.add_argument(
-        "--whisper_model",
-        type=str,
-        default="large-v3",
-        help="Whisper model to use for transcription",
-    )
+
     parser.add_argument(
         "--transcript_save_dir",
         type=str,
@@ -214,9 +221,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     transcribe_file(
-        args.audio_files,
-        args.whisper_model,
-        args.transcript_save_dir,
-        args.meta_save_dir,
-        args.upload_to_s3,
+        audio_files=args.audio_files,
+        transcript_save_dir=args.transcript_save_dir,
+        meta_save_dir=args.meta_save_dir,
+        upload_to_s3=args.upload_to_s3,
+        is_batch_processing=True,
     )
