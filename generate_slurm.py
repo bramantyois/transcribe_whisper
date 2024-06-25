@@ -158,12 +158,13 @@ def generate_slurm_script(
             f.write(f"#SBATCH --output={out_fn}\n")
             f.write(f"#SBATCH --error={err_fn}\n")
             f.write(f"#SBATCH --time=2:00:00\n")
-            f.write(f"#SBATCH --cpus-per-task=2\n")
-            f.write(f"#SBATCH --partition=gpu\n")
+            f.write(f"#SBATCH --cpus-per-task=8\n")
             if is_tardis:
+                f.write(f"#SBATCH --partition=gpu\n")
                 f.write(f"#SBATCH --gres=gpu:turing:1\n")
             else:
-                f.write(f"#SBATCH --gres=gpu:1\n")
+                f.write(f'#SBATCH --constraint="gpu"\n')
+                f.write(f"#SBATCH --gres=gpu:a100:1\n")
             f.write(f"#SBATCH --mem=64G\n\n")
             
             f.write("module load conda\n")
