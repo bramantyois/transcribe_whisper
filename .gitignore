@@ -8,3 +8,4 @@ results
 *.json
 *.txt
 *.out
+*.temp

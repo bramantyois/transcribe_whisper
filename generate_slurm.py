@@ -107,43 +107,6 @@ def generate_slurm_script(
     batches = get_batches(
         file_sizes, speech_files, max_size_per_batch=max_file_size_per_batch
     )
-
-    # n_jobs = len(speech_files) // n_files_per_job + 1
-
-    # for i in range(n_jobs):
-    #     slurm_fn = os.path.join(slurm_script_dir, f"transcribe_{i}.slurm")
-    #     out_fn = os.path.join(slurm_out_dir, f"transcribe_{i}.out")
-    #     err_fn = os.path.join(slurm_err_dir, f"transcribe_{i}.err")
-    #     with open(slurm_fn, "w") as f:
-    #         f.write("""#!/bin/bash\n\n""")
-    #         f.write(f"#SBATCH --job-name=transcribe_{i}\n")
-    #         f.write(f"#SBATCH --output={out_fn}\n")
-    #         f.write(f"#SBATCH --error={err_fn}\n")
-    #         f.write(f"#SBATCH --time=2:00:00\n")
-    #         f.write(f"#SBATCH --cpus-per-task=2\n")
-    #         f.write(f"#SBATCH --partition=gpu\n")
-    #         if is_tardis:
-    #             f.write(f"#SBATCH --gres=gpu:turing:1\n")
-    #         else:
-    #             f.write(f"#SBATCH --gres=gpu:1\n")
-
-    #         f.write(f"#SBATCH --mem=64G\n\n")
-
-    #         # print cwd
-    #         f.write("module load conda\n")
-    #         f.write("conda activate whisper\n")
-    #         if not upload_to_s3:
-    #             f.write(
-    #                 f"python transcribe.py {' '.join(speech_files[i*n_files_per_job:(i+1)*n_files_per_job])} --whisper_model {whisper_model} --transcript_save_dir {transcript_save_dir} --meta_save_dir {meta_save_dir}"
-    #             )
-    #         else:
-    #             f.write(
-    #                 f"python transcribe.py {' '.join(speech_files[i*n_files_per_job:(i+1)*n_files_per_job])} --whisper_model {whisper_model} --transcript_save_dir {transcript_save_dir} --meta_save_dir {meta_save_dir} --upload_to_s3"
-    #             )
-
-    #     if submit_jobs:
-    #         # Submit the job
-    #         os.system(f"sbatch {slurm_fn}")
     
     for i, batch in enumerate(batches):
         slurm_fn = os.path.join(slurm_script_dir, f"transcribe_{i}.slurm")
