@@ -1,3 +1,5 @@
+from typing import List
+
 import pandas as pd
 
 import os
@@ -33,6 +35,31 @@ def find_transcribed_files(meta_dir: str):
     return transcribed_files
 
 
+def get_durations(
+    files: List[str],
+    csv_files: str = "world/snapshot.20240606153519/video_list_eng_title.csv",
+):
+
+    basenames = [os.path.basename(f) for f in files]
+    ids = [os.path.basename(f).split(".")[0] for f in basenames]
+    
+    # check if csv_files is there
+    if not os.path.exists(csv_files):
+        load_file_from_s3(csv_files)
+    
+    file_df = pd.read_csv(csv_file)
+    
+    durations = []
+    for id in ids:
+        try:
+            duration = file_df[file_df["video_id"] == id]["video_duration_seconds"]
+            durations.append(duration)
+        except:
+            durations.append(None)
+        
+    return durations
+
+
 def get_untranscribed_files(
     speech_file_dir: str, meta_dir: str, return_size: bool = True
 ):
@@ -41,7 +68,7 @@ def get_untranscribed_files(
     """
     transcribed_files = find_transcribed_files(meta_dir)
     all_files, sizes = get_list_of_files_s3(speech_file_dir, return_size=True)
-    
+
     all_files = all_files[:100]
     sizes = sizes[:100]
 
@@ -61,18 +88,22 @@ def get_untranscribed_files(
     return untranscribed_files
 
 
-def get_batches(files_sizes, speech_files, max_size_per_batch=1e9):
+def get_batches(files_dur_in_seconds, speech_files, max_dur_per_batch_in_seconds : float=7200, max_dur_per_file: float=7200):
     # now sort ascending
-    sorted_files = sorted(zip(files_sizes, speech_files))
+    sorted_files = sorted(zip(files_dur_in_seconds, speech_files))
 
     files = [f for _, f in sorted_files]
-    sizes = [s for s, _ in sorted_files]
+    durations = [d for d, _ in durations]
 
     batches = []
     cur_batch = []
     cur_sum = 0
-    for f, s in zip(files, sizes):
-        if cur_sum + s > max_size_per_batch:
+    for f, s in zip(files, durations):
+        # skip if duration is too long
+        if s > max_dur_per_file:
+            continue
+        
+        if cur_sum + s > max_dur_per_batch_in_seconds:
             if len(cur_batch) > 0:
                 batches.append(cur_batch.copy())
         else:
@@ -112,12 +143,12 @@ def generate_slurm_script(
     batches = get_batches(
         file_sizes, speech_files, max_size_per_batch=max_file_size_per_batch
     )
-    
+
     for i, batch in enumerate(batches):
         slurm_fn = os.path.join(slurm_script_dir, f"transcribe_{i}.slurm")
         out_fn = os.path.join(slurm_out_dir, f"transcribe_{i}.out")
         err_fn = os.path.join(slurm_err_dir, f"transcibe_{i}.err")
-        
+
         with open(slurm_fn, "w") as f:
             f.write("""#!/bin/bash\n\n""")
             f.write(f"#SBATCH --job-name=transcribe_{i}\n")
@@ -132,18 +163,18 @@ def generate_slurm_script(
                 f.write(f'#SBATCH --constraint="gpu"\n')
                 f.write(f"#SBATCH --gres=gpu:a100:1\n")
             f.write(f"#SBATCH --mem=64G\n\n")
-            
+
             f.write("module load conda\n")
             f.write("conda activate whisper\n")
             if not upload_to_s3:
                 f.write(
                     f"python transcribe.py {' '.join(batch)} --transcript_save_dir {transcript_save_dir} --meta_save_dir {meta_save_dir}"
                 )
-            else: 
+            else:
                 f.write(
                     f"python transcribe.py {' '.join(batch)} --transcript_save_dir {transcript_save_dir} --meta_save_dir {meta_save_dir} --upload_to_s3"
                 )
-            
+
         if submit_jobs:
             os.system(f"sbatch {slurm_fn}")
 

@@ -110,6 +110,13 @@ def load_file_from_s3(s3_file_path, bucket_name=None, save_dir="./"):
 
     s3_client = get_minio_client()
 
+    # creating dir
+    file_dir = os.path.dirname(s3_file_path)
+    save_file_dir = os.path.join(save_dir, file_dir)
+    
+    if not os.path.exists(save_file_dir):
+        os.makedirs(save_file_dir)
+
     s3_client.download_file(
         bucket_name, s3_file_path, os.path.join(save_dir, s3_file_path)
     )
