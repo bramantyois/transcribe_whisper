@@ -26,4 +26,5 @@ python script `generate_slurm.py` is provided to run transcription on HPC via SL
 python generate_slurm.py --speech_file_dir data --whisper_model large-v3 --transcript_save_dir results/transcripts --meta_save_dir results/meta --n_files_per_job 10 --submit_jobs
 ```
 The above command will transcribe all the files in `data` directory using the `large-v3` model and save the transcript in `results/transcripts` and metadata in `results/meta`. For each job, it will transcribe 10 files. The `--submit_jobs` flag will submit the jobs to the HPC, if not specified, the script will only generate slurm scripts but not submitting. 
-```
+
+Please also check the `generate_slurm_scripts.sh` to run the same scripts via bash. This script will not submit the jobs. you can submit the jobs manually by running `sbatch .cache/slurm_scripts/transcribe_*.slurm` or run `bash run_slurm_scripts.sh` to submit all the jobs at once.
