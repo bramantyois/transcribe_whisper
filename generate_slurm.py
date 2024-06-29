@@ -52,10 +52,11 @@ def get_durations(
     durations = []
     for id in ids:
         try:
-            duration = file_df[file_df["video_id"] == id]["video_duration_seconds"]
+            duration = file_df[file_df["video_id"] == id]["video_duration_seconds"].values[0]   
             durations.append(duration)
         except:
-            durations.append(None)
+            # make it really big, so it will be skipped
+            durations.append(1e9)
 
     return durations
 
@@ -67,11 +68,11 @@ def get_untranscribed_files(
     Get a list of speech files that have not been transcribed.
     """
     transcribed_files = find_transcribed_files(meta_dir)
-    all_files = get_list_of_files_s3(speech_file_dir, return_size=False)
+    all_files = get_list_of_files_s3(speech_file_dir, return_size=False, max_pages=1)
     durations = get_durations(all_files)
 
-    all_files = all_files[:100]
-    durations = durations[:100]
+    all_files = all_files
+    durations = durations
 
     # now get untranscribed_file
     untranscribed_files = []
@@ -99,7 +100,7 @@ def get_batches(
     sorted_files = sorted(zip(file_dur_in_seconds, speech_files))
 
     files = [f for _, f in sorted_files]
-    durations = [d for d, _ in file_dur_in_seconds]
+    durations = [d for d, _ in sorted_files]
 
     batches = []
     cur_batch = []
@@ -112,6 +113,11 @@ def get_batches(
         if cur_sum + s > max_dur_per_batch_in_seconds:
             if len(cur_batch) > 0:
                 batches.append(cur_batch.copy())
+                
+                print("batch size:", len(cur_batch), "duration:", cur_sum)
+                
+                cur_batch =[]
+                cur_sum = 0
         else:
             cur_batch.append(f)
             cur_sum += s
@@ -138,10 +144,12 @@ def generate_slurm_script(
     if not os.path.exists(slurm_err_dir):
         os.makedirs(slurm_err_dir)
 
+    print("getting untranscribed files...")
     speech_files, file_durations = get_untranscribed_files(
         speech_file_dir, meta_save_dir, return_duration=True
     )
 
+    print("making batches...")
     if is_tardis:
         max_duration_per_batch_in_seconds = 5*3600
     else:
@@ -150,6 +158,7 @@ def generate_slurm_script(
         file_durations, speech_files, max_dur_per_batch_in_seconds=max_duration_per_batch_in_seconds
     )
 
+    print("generating slurm scripts...")
     for i, batch in enumerate(batches):
         slurm_fn = os.path.join(slurm_script_dir, f"transcribe_{i}.slurm")
         out_fn = os.path.join(slurm_out_dir, f"transcribe_{i}.out")
@@ -182,6 +191,7 @@ def generate_slurm_script(
                 )
 
         if submit_jobs:
+            print("submitting jobs...")
             os.system(f"sbatch {slurm_fn}")
 
 

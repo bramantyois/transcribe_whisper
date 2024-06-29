@@ -150,7 +150,7 @@ def load_folder_from_s3(s3_folder_path, bucket_name=None, save_dir="./"):
             s3_client.download_file(bucket_name, obj["Key"], local_file_path)
 
 
-def get_list_of_files_s3(s3_folder_path, return_size=False, bucket_name=None):
+def get_list_of_files_s3(s3_folder_path, return_size=False, bucket_name=None, max_pages=-1):
     """
     Get list of files on S3 bucket
 
@@ -171,13 +171,18 @@ def get_list_of_files_s3(s3_folder_path, return_size=False, bucket_name=None):
 
     files = []
     sizes = []
-
+    
+    page_count = 0
     for page in pages:
         for obj in page.get("Contents", []):
             files.append(obj["Key"])
-            sizes.append(obj["Size"])
+        page_count+=1
+        if page_count >= max_pages:
+            break
         
     if return_size:
+        for obj in page.get("Contents", []):
+            sizes.append(obj["Size"])
         return files, sizes
 
     return files
